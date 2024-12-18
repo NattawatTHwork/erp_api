@@ -4,7 +4,24 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using erp_api.Services;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory,
+    WebRootPath = "wwwroot",
+    ApplicationName = "erp_api",
+    EnvironmentName = Environments.Production
+});
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(2095); // HTTP (Cloudflare supports port 2095)
+    options.ListenAnyIP(8443, listenOptions =>
+    {
+        listenOptions.UseHttps("/etc/letsencrypt/live/thaicodelab.com/fullchain.pem",
+                               "/etc/letsencrypt/live/thaicodelab.com/privkey.pem");
+    });
+});
 
 builder.Services.AddDbContext<ErpDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -52,9 +69,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        policy.AllowAnyOrigin()  // อนุญาตให้ทุก Origin เรียก API ได้
+              .AllowAnyMethod()  // อนุญาตทุก Method (GET, POST, PUT, DELETE)
+              .AllowAnyHeader(); // อนุญาตทุก Header
     });
 });
 
