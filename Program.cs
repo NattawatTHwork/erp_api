@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Security.Cryptography.X509Certificates;
+using Microsoft.AspNetCore.DataProtection;
 using erp_api.Services;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -15,7 +17,7 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ListenAnyIP(2095); // HTTP (Cloudflare supports port 2095)
+    options.ListenAnyIP(2095);
     options.ListenAnyIP(8443, listenOptions =>
     {
         listenOptions.UseHttps("/etc/letsencrypt/live/thaicodelab.com/fullchain.pem",
@@ -25,6 +27,15 @@ builder.WebHost.ConfigureKestrel(options =>
 
 builder.Services.AddDbContext<ErpDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+if (builder.Environment.IsProduction())
+{
+    var cert = new X509Certificate2("/etc/letsencrypt/live/thaicodelab.com/fullchain.pem");
+
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo("/var/www/erp_api/keys/"))
+        .ProtectKeysWithCertificate(cert);
+}
 
 builder.Services.AddScoped<EquipmentGroupService>();
 builder.Services.AddScoped<EquipmentService>();
@@ -69,9 +80,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()  // อนุญาตให้ทุก Origin เรียก API ได้
-              .AllowAnyMethod()  // อนุญาตทุก Method (GET, POST, PUT, DELETE)
-              .AllowAnyHeader(); // อนุญาตทุก Header
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
     });
 });
 
